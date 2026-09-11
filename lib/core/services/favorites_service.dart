@@ -15,6 +15,7 @@ final favoritesProvider = StateNotifierProvider<FavoritesNotifier, List<Station>
 class FavoritesNotifier extends StateNotifier<List<Station>> {
   final FavoritesApi _api;
   final bool _isLoggedIn;
+  String? lastError;
 
   FavoritesNotifier(this._api, {required bool isLoggedIn})
       : _isLoggedIn = isLoggedIn,
@@ -25,19 +26,37 @@ class FavoritesNotifier extends StateNotifier<List<Station>> {
   Future<void> _load() async {
     try {
       state = await _api.getFavorites();
+      lastError = null;
     } catch (_) {}
   }
 
   bool isFavorite(String stationId) => state.any((s) => s.id == stationId);
 
-  Future<void> toggle(Station station) async {
-    if (!_isLoggedIn) return;
+  Future<bool> toggle(Station station) async {
+    if (!_isLoggedIn) return false;
+    final previous = List<Station>.from(state);
     if (isFavorite(station.id)) {
       state = state.where((s) => s.id != station.id).toList();
-      await _api.removeFavorite(station.id);
+      try {
+        await _api.removeFavorite(station.id);
+        lastError = null;
+        return true;
+      } catch (_) {
+        state = previous;
+        lastError = 'Could not update favorites. Please try again.';
+        return false;
+      }
     } else {
       state = [...state, station];
-      await _api.addFavorite(station.id);
+      try {
+        await _api.addFavorite(station.id);
+        lastError = null;
+        return true;
+      } catch (_) {
+        state = previous;
+        lastError = 'Could not save favorite. Please try again.';
+        return false;
+      }
     }
   }
 }

@@ -85,27 +85,36 @@ class PlatformConfig {
 
 class DonationResult {
   final bool success;
+  final bool requiresPayment;
   final String trackingId;
   final String message;
   final double amount;
   final String currency;
+  final String status;
+  final String? redirectUrl;
 
   const DonationResult({
     required this.success,
+    required this.requiresPayment,
     required this.trackingId,
     required this.message,
     required this.amount,
     required this.currency,
+    required this.status,
+    this.redirectUrl,
   });
 
   factory DonationResult.fromJson(Map<String, dynamic> json) {
-    final don = json['donation'] as Map<String, dynamic>?;
+    final don = json['donation'] is Map ? Map<String, dynamic>.from(json['donation'] as Map) : null;
     return DonationResult(
       success: json['success'] as bool? ?? true,
+      requiresPayment: json['requiresPayment'] as bool? ?? ((don?['status'] as String?) == 'PENDING'),
       trackingId: (json['trackingId'] ?? don?['trackingId'] ?? '') as String,
-      message: json['message'] as String? ?? 'Donation recorded successfully.',
+      message: json['message'] as String? ?? 'Donation recorded. Complete payment to finish.',
       amount: (don?['amount'] as num?)?.toDouble() ?? 0.0,
       currency: (don?['currency'] ?? 'USD') as String,
+      status: (don?['status'] ?? json['status'] ?? 'PENDING') as String,
+      redirectUrl: (json['redirectUrl'] ?? json['checkoutUrl'] ?? json['paymentUrl']) as String?,
     );
   }
 }

@@ -3,7 +3,9 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../api/api_client.dart';
 import '../api/stations_api.dart';
 import '../models/category.dart';
+import '../models/prayer.dart';
 import '../models/station.dart';
+import '../utils/json_codec.dart';
 
 final stationsApiProvider = Provider<StationsApi>((ref) => StationsApi(buildDio()));
 
@@ -19,8 +21,24 @@ final categoriesProvider = FutureProvider<List<RadioCategory>>((ref) {
   return ref.read(stationsServiceProvider).getCategories();
 });
 
-final allStationsProvider = FutureProvider.family<List<Station>, StationFilter>((ref, filter) {
+final platformStatsProvider = FutureProvider<PlatformStats>((ref) {
+  return ref.read(stationsServiceProvider).getStats();
+});
+
+final countriesProvider = FutureProvider<List<StationCountry>>((ref) {
+  return ref.read(stationsServiceProvider).getCountries();
+});
+
+final allStationsProvider = FutureProvider.autoDispose.family<StationsPage, StationFilter>((ref, filter) {
   return ref.read(stationsServiceProvider).getStations(filter: filter);
+});
+
+final stationReviewsProvider = FutureProvider.autoDispose.family<StationReviewsPage, String>((ref, stationId) {
+  return ref.read(stationsApiProvider).getReviews(stationId);
+});
+
+final stationPrayersProvider = FutureProvider.autoDispose.family<List<PrayerRequest>, String>((ref, stationId) {
+  return ref.read(stationsApiProvider).getStationPrayers(stationId);
 });
 
 class StationFilter {
@@ -28,6 +46,7 @@ class StationFilter {
   final String? category;
   final String? country;
   final String? genre;
+  final bool featuredOnly;
   final int page;
   final int limit;
 
@@ -36,6 +55,7 @@ class StationFilter {
     this.category,
     this.country,
     this.genre,
+    this.featuredOnly = false,
     this.page = 1,
     this.limit = 60,
   });
@@ -47,11 +67,12 @@ class StationFilter {
       other.category == category &&
       other.country == country &&
       other.genre == genre &&
+      other.featuredOnly == featuredOnly &&
       other.page == page &&
       other.limit == limit;
 
   @override
-  int get hashCode => Object.hash(search, category, country, genre, page, limit);
+  int get hashCode => Object.hash(search, category, country, genre, featuredOnly, page, limit);
 }
 
 class StationsService {
@@ -62,8 +83,23 @@ class StationsService {
 
   Future<List<RadioCategory>> getCategories() async {
     try {
-      final categories = await _api.getCategories();
-      return categories;
+      return await _api.getCategories();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<PlatformStats> getStats() async {
+    try {
+      return await _api.getStats();
+    } catch (_) {
+      return PlatformStats.empty;
+    }
+  }
+
+  Future<List<StationCountry>> getCountries() async {
+    try {
+      return await _api.getCountries();
     } catch (_) {
       return [];
     }
@@ -79,23 +115,46 @@ class StationsService {
     }
   }
 
-  Future<List<Station>> getStations({StationFilter? filter}) async {
+  Future<StationsPage> getStations({StationFilter? filter}) async {
     final f = filter ?? const StationFilter();
     try {
-      final stations = await _api.getStations(
+      final page = await _api.getStationsPage(
         search: f.search,
         category: f.category,
         country: f.country,
         genre: f.genre,
+        featuredOnly: f.featuredOnly,
         page: f.page,
         limit: f.limit,
       );
-      if (f.search == null && f.category == null && f.country == null && f.genre == null && f.page == 1) {
-        await _cacheStations(stations, 'all');
+      if (f.search == null &&
+          f.category == null &&
+          f.country == null &&
+          f.genre == null &&
+          !f.featuredOnly &&
+          f.page == 1) {
+        await _cacheStations(page.stations, 'all');
+        await _cacheMeta(page.total);
       }
-      return stations;
-    } catch (_) {
-      return _getCachedStations('all');
+      return page;
+    } catch (e) {
+      if (f.search == null &&
+          f.category == null &&
+          f.country == null &&
+          f.genre == null &&
+          !f.featuredOnly &&
+          f.page == 1) {
+        final cached = await _getCachedStations('all');
+        if (cached.isNotEmpty) {
+          return StationsPage(
+            stations: cached,
+            total: await _cachedTotal(cached.length),
+            page: 1,
+            totalPages: 1,
+          );
+        }
+      }
+      rethrow;
     }
   }
 
@@ -108,6 +167,26 @@ class StationsService {
     } catch (_) {}
   }
 
+  Future<void> _cacheMeta(int total) async {
+    try {
+      final box = Hive.isBoxOpen(_cacheBoxName)
+          ? Hive.box(_cacheBoxName)
+          : await Hive.openBox(_cacheBoxName);
+      await box.put('total', total);
+    } catch (_) {}
+  }
+
+  Future<int> _cachedTotal(int fallback) async {
+    try {
+      final box = Hive.isBoxOpen(_cacheBoxName)
+          ? Hive.box(_cacheBoxName)
+          : await Hive.openBox(_cacheBoxName);
+      return asInt(box.get('total'), fallback);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
   Future<List<Station>> _getCachedStations(String key) async {
     try {
       final box = Hive.isBoxOpen(_cacheBoxName)
@@ -115,7 +194,10 @@ class StationsService {
           : await Hive.openBox(_cacheBoxName);
       final raw = box.get(key) as List?;
       if (raw == null) return [];
-      return raw.map((e) => Station.fromJson(Map<String, dynamic>.from(e as Map))).toList();
+      return raw
+          .whereType<Map>()
+          .map((e) => Station.fromJson(asStringKeyMap(e)))
+          .toList();
     } catch (_) {
       return [];
     }

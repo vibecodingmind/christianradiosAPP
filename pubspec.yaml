@@ -39,6 +39,9 @@ dependencies:
   # Share station
   share_plus: ^10.1.4
 
+  # Open payment checkout, websites, and stream homepages
+  url_launcher: ^6.3.1
+
   # Icons
   cupertino_icons: ^1.0.8
 

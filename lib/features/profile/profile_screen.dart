@@ -187,43 +187,7 @@ class _LoginViewState extends ConsumerState<_LoginView> {
 
               const SizedBox(height: 24),
 
-              // Social Sign In Buttons
-              _buildSocialButton(
-                icon: Icons.g_mobiledata_rounded,
-                label: 'Continue with Google',
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black87,
-                borderColor: Colors.grey.shade300,
-                onTap: () => _loginWithSocial('Google', 'Christian Listener', 'listener@gmail.com'),
-              ),
-              const SizedBox(height: 12),
-              _buildSocialButton(
-                icon: Icons.apple,
-                label: 'Continue with Apple',
-                backgroundColor: const Color(0xFF1E293B),
-                foregroundColor: Colors.white,
-                borderColor: AppColors.surfaceVariant,
-                onTap: () => _loginWithSocial('Apple', 'Apple Listener', 'apple.listener@icloud.com'),
-              ),
-
-              const SizedBox(height: 22),
-
-              // Divider with "or with email"
-              Row(
-                children: [
-                  Expanded(child: Divider(color: AppColors.surfaceVariant.withValues(alpha: 0.6))),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 14),
-                    child: Text(
-                      'or with email',
-                      style: TextStyle(color: AppColors.onSurfaceMuted, fontSize: 12),
-                    ),
-                  ),
-                  Expanded(child: Divider(color: AppColors.surfaceVariant.withValues(alpha: 0.6))),
-                ],
-              ),
-
-              const SizedBox(height: 20),
+              // Email sign-in only — Google/Apple require native OAuth ID tokens.
 
               // Form fields
               if (_isRegister) ...[
@@ -390,43 +354,6 @@ class _LoginViewState extends ConsumerState<_LoginView> {
     );
   }
 
-  Widget _buildSocialButton({
-    required IconData icon,
-    required String label,
-    required Color backgroundColor,
-    required Color foregroundColor,
-    required Color borderColor,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: _loading ? null : onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: 50,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderColor),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: foregroundColor, size: 24),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: TextStyle(
-                color: foregroundColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildPerkItem(IconData icon, String text) {
     return Padding(
       padding: const EdgeInsets.only(top: 6),
@@ -444,38 +371,6 @@ class _LoginViewState extends ConsumerState<_LoginView> {
         ],
       ),
     );
-  }
-
-  Future<void> _loginWithSocial(String provider, String name, String email) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      await ref.read(currentUserProvider.notifier).loginSocial(
-            provider: provider,
-            name: name,
-            email: email,
-          );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.surface,
-            content: Text(
-              'Signed in via $provider! Welcome to Christian Radios.',
-              style: const TextStyle(color: AppColors.primary),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      final msg = e.toString().replaceFirst('Exception: ', '');
-      if (mounted) {
-        setState(() => _error = msg);
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
   }
 
   Future<void> _submit() async {

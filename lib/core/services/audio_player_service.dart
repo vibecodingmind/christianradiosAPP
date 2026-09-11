@@ -86,22 +86,26 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
       extras: {'streamUrl': station.streamUrl},
     ));
 
-    try {
-      await _player.stop();
-      await _player.setUrl(station.streamUrl);
-      await _player.play();
-    } catch (_) {
-      if (station.backupStreamUrl != null && station.backupStreamUrl!.isNotEmpty) {
-        try {
-          await _player.setUrl(station.backupStreamUrl!);
-          await _player.play();
-        } catch (e) {
-          rethrow;
-        }
-      } else {
-        rethrow;
+    final urls = <String>[
+      station.streamUrl,
+      if (station.backupStreamUrl != null && station.backupStreamUrl!.isNotEmpty)
+        station.backupStreamUrl!,
+      if (station.streamUrl.startsWith('http://'))
+        station.streamUrl.replaceFirst('http://', 'https://'),
+    ];
+
+    Object? lastError;
+    for (final url in urls.toSet()) {
+      try {
+        await _player.stop();
+        await _player.setUrl(url);
+        await _player.play();
+        return;
+      } catch (e) {
+        lastError = e;
       }
     }
+    throw lastError ?? Exception('Could not start stream');
   }
 
   @override

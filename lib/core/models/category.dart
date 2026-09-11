@@ -1,3 +1,5 @@
+import '../utils/json_codec.dart';
+
 class RadioCategory {
   final String id;
   final String name;
@@ -20,13 +22,13 @@ class RadioCategory {
   });
 
   factory RadioCategory.fromJson(Map<String, dynamic> json) => RadioCategory(
-    id: json['id'] as String? ?? '',
-    name: json['name'] as String? ?? '',
-    slug: json['slug'] as String? ?? '',
-    description: json['description'] as String?,
-    iconUrl: json['iconUrl'] as String?,
-    iconName: json['iconName'] as String?,
-    stationCount: (json['stationCount'] as num?)?.toInt(),
-    isActive: json['isActive'] as bool? ?? true,
+    id: asString(json['id']),
+    name: asString(json['name']),
+    slug: asString(json['slug']),
+    description: asNullableString(json['description']),
+    iconUrl: asNullableString(json['iconUrl']),
+    iconName: asNullableString(json['iconName']),
+    stationCount: asNullableInt(json['stationCount']),
+    isActive: asBool(json['isActive'], true),
   );
 }

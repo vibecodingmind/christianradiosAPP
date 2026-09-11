@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../models/station.dart';
+import '../utils/json_codec.dart';
 
 class FavoritesApi {
   final Dio _dio;
@@ -8,8 +9,10 @@ class FavoritesApi {
   Future<List<Station>> getFavorites() async {
     final resp = await _dio.get('/listener/favorites');
     final data = resp.data;
-    final List<dynamic> items = data is List ? data : (data['favorites'] ?? data['data'] ?? []);
-    return items.map((e) => Station.fromJson(e as Map<String, dynamic>)).toList();
+    final List<dynamic> items = data is List
+        ? data
+        : asList(asStringKeyMap(data)['favorites'] ?? asStringKeyMap(data)['data']);
+    return items.map(_stationFromFavorite).where((s) => s.id.isNotEmpty).toList();
   }
 
   Future<void> addFavorite(String stationId) async {
@@ -18,5 +21,13 @@ class FavoritesApi {
 
   Future<void> removeFavorite(String stationId) async {
     await _dio.delete('/listener/favorites/$stationId');
+  }
+
+  Station _stationFromFavorite(dynamic raw) {
+    final map = asStringKeyMap(raw);
+    if (map['station'] is Map) {
+      return Station.fromJson(asStringKeyMap(map['station']));
+    }
+    return Station.fromJson(map);
   }
 }

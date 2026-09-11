@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/user.dart';
+import '../utils/json_codec.dart';
 
 class AuthApi {
   final Dio _dio;
@@ -8,13 +9,20 @@ class AuthApi {
 
   AuthApi(this._dio, this._storage);
 
+  Future<({AppUser user, String token})> _parseAuth(dynamic payload, String fallbackError) async {
+    final body = asStringKeyMap(payload);
+    final token = asString(body['token']);
+    if (token.isEmpty || body['user'] is! Map) {
+      throw Exception(fallbackError);
+    }
+    await _storage.write(key: 'auth_token', value: token);
+    return (user: AppUser.fromJson(asStringKeyMap(body['user'])), token: token);
+  }
+
   Future<({AppUser user, String token})> login(String email, String password) async {
     try {
       final resp = await _dio.post('/auth/login', data: {'email': email, 'password': password});
-      final body = resp.data as Map<String, dynamic>;
-      final token = body['token'] as String;
-      await _storage.write(key: 'auth_token', value: token);
-      return (user: AppUser.fromJson(body['user'] as Map<String, dynamic>), token: token);
+      return _parseAuth(resp.data, 'Login failed. Please try again.');
     } on DioException catch (e) {
       final msg = e.response?.data is Map ? e.response?.data['error']?.toString() : null;
       throw Exception(msg ?? 'Invalid email or password. Please try again.');
@@ -33,10 +41,7 @@ class AuthApi {
         'password': password,
         'role': 'LISTENER',
       });
-      final body = resp.data as Map<String, dynamic>;
-      final token = body['token'] as String;
-      await _storage.write(key: 'auth_token', value: token);
-      return (user: AppUser.fromJson(body['user'] as Map<String, dynamic>), token: token);
+      return _parseAuth(resp.data, 'Registration failed. Please try again.');
     } on DioException catch (e) {
       final msg = e.response?.data is Map ? e.response?.data['error']?.toString() : null;
       throw Exception(msg ?? 'Registration failed. Email may already be in use.');
@@ -56,10 +61,7 @@ class AuthApi {
         if (avatarUrl != null) 'avatarUrl': avatarUrl,
         'role': 'LISTENER',
       });
-      final body = resp.data as Map<String, dynamic>;
-      final token = body['token'] as String;
-      await _storage.write(key: 'auth_token', value: token);
-      return (user: AppUser.fromJson(body['user'] as Map<String, dynamic>), token: token);
+      return _parseAuth(resp.data, 'Social authentication with $provider failed.');
     } on DioException catch (e) {
       final msg = e.response?.data is Map ? e.response?.data['error']?.toString() : null;
       throw Exception(msg ?? 'Social authentication with $provider failed.');
@@ -69,9 +71,9 @@ class AuthApi {
   Future<AppUser?> getMe() async {
     try {
       final resp = await _dio.get('/auth/me');
-      final data = resp.data;
-      if (data is Map<String, dynamic> && data['user'] != null) {
-        return AppUser.fromJson(data['user'] as Map<String, dynamic>);
+      final data = asStringKeyMap(resp.data);
+      if (data['user'] is Map) {
+        return AppUser.fromJson(asStringKeyMap(data['user']));
       }
       return null;
     } catch (_) {
