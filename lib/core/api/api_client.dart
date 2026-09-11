@@ -1,28 +1,39 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-const String _baseUrl = String.fromEnvironment(
+const String kApiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
   defaultValue: 'https://christianradios-production.up.railway.app/api',
 );
+
+const String kWebOrigin = String.fromEnvironment(
+  'WEB_ORIGIN',
+  defaultValue: 'https://christianradios-production.up.railway.app',
+);
+
 const _storage = FlutterSecureStorage();
 
+Dio? _sharedDio;
+
 Dio buildDio() {
+  return _sharedDio ??= _createDio();
+}
+
+Dio _createDio() {
   final dio = Dio(
     BaseOptions(
-      baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 8),
-      receiveTimeout: const Duration(seconds: 10),
-      headers: {'Content-Type': 'application/json'},
+      baseUrl: kApiBaseUrl,
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 20),
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
     ),
   );
 
-  // Inject auth token on every request & handle 401 unauthorized
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
         final token = await _storage.read(key: 'auth_token');
-        if (token != null) {
+        if (token != null && token.isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $token';
         }
         handler.next(options);

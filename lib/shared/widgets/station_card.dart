@@ -44,7 +44,7 @@ class StationCard extends ConsumerWidget {
     // Location or tagline text
     final subtitle = station.tagline?.isNotEmpty == true
         ? station.tagline!
-        : (station.countryCode.isNotEmpty ? 'Global Broadcast • ${station.countryCode}' : 'Christian Radio');
+        : station.locationLabel;
 
     final padding = isSmall ? 8.0 : 12.0;
     final borderRadius = isSmall ? 14.0 : 16.0;
@@ -225,7 +225,7 @@ class StationCard extends ConsumerWidget {
   ) {
     final subtitle = station.tagline?.isNotEmpty == true
         ? station.tagline!
-        : (station.countryCode.isNotEmpty ? 'Broadcast • ${station.countryCode}' : 'Christian Radio');
+        : station.locationLabel;
 
     return GestureDetector(
       onTap: () => StationDetailSheet.show(context, station),

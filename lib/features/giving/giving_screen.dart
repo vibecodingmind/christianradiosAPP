@@ -1,12 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/campaign.dart';
 import '../../core/models/platform_config.dart';
-import '../../core/services/auth_service.dart';
+import '../../core/models/station.dart';
+import '../../core/services/audio_player_service.dart';
 import '../../core/services/giving_service.dart';
+import '../../core/services/stations_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/donation_sheet.dart';
 
 class GivingScreen extends ConsumerStatefulWidget {
   const GivingScreen({super.key});
@@ -17,8 +19,9 @@ class GivingScreen extends ConsumerStatefulWidget {
 
 class _GivingScreenState extends ConsumerState<GivingScreen> {
   String _selectedPurpose = 'Seed Offering';
-  String _selectedCurrency = 'TZS';
-  int _selectedAmount = 10000;
+  String _selectedCurrency = 'USD';
+  int _selectedAmount = 10;
+  Station? _selectedStation;
   final _customAmountCtrl = TextEditingController();
 
   final _purposes = const [
@@ -64,23 +67,29 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
   }
 
   void _syncAdminDefaults(GivingConfig config) {
-    if (!_initializedDefaults) {
-      _initializedDefaults = true;
-      _selectedCurrency = config.defaultCurrency;
-      if (_selectedCurrency == 'TZS' && config.presetAmountsTZS.isNotEmpty) {
-        _selectedAmount = config.presetAmountsTZS[1 < config.presetAmountsTZS.length ? 1 : 0];
-      } else if (config.presetAmountsUSD.isNotEmpty) {
-        _selectedAmount = config.presetAmountsUSD[1 < config.presetAmountsUSD.length ? 1 : 0];
-      }
-    }
+    if (_initializedDefaults) return;
+    _initializedDefaults = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _selectedCurrency = config.defaultCurrency;
+        if (_selectedCurrency == 'TZS' && config.presetAmountsTZS.isNotEmpty) {
+          _selectedAmount = config.presetAmountsTZS[1 < config.presetAmountsTZS.length ? 1 : 0];
+        } else if (config.presetAmountsUSD.isNotEmpty) {
+          _selectedAmount = config.presetAmountsUSD[1 < config.presetAmountsUSD.length ? 1 : 0];
+        }
+      });
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final givingConfigAsync = ref.watch(givingConfigProvider);
     final campaignsAsync = ref.watch(campaignsProvider);
-    final user = ref.watch(currentUserProvider);
     final scripture = _scriptures[_scriptureIndex];
+    final currentStation = ref.watch(currentStationProvider);
+    final featuredAsync = ref.watch(featuredStationsProvider);
+    _selectedStation ??= currentStation;
 
     return Scaffold(
       appBar: AppBar(
@@ -115,10 +124,10 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
-        error: (_, __) => _buildGivingBody(GivingConfig.defaultFallback, campaignsAsync, user, scripture),
+        error: (_, __) => _buildGivingBody(GivingConfig.defaultFallback, campaignsAsync, scripture, featuredAsync),
         data: (config) {
           _syncAdminDefaults(config);
-          return _buildGivingBody(config, campaignsAsync, user, scripture);
+          return _buildGivingBody(config, campaignsAsync, scripture, featuredAsync);
         },
       ),
     );
@@ -127,8 +136,8 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
   Widget _buildGivingBody(
     GivingConfig config,
     AsyncValue<List<DonationCampaign>> campaignsAsync,
-    dynamic user,
     Map<String, String> scripture,
+    AsyncValue<List<Station>> featuredAsync,
   ) {
     final presets = _selectedCurrency == 'TZS' ? config.presetAmountsTZS : config.presetAmountsUSD;
 
@@ -324,7 +333,48 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
 
                 const SizedBox(height: 16),
 
-                // Currency & Amount
+                const Text('Give to Station', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                featuredAsync.maybeWhen(
+                  data: (stations) {
+                    final options = <Station>[
+                      if (_selectedStation != null) _selectedStation!,
+                      ...stations,
+                    ];
+                    final unique = <String, Station>{};
+                    for (final s in options) {
+                      unique[s.id] = s;
+                    }
+                    final list = unique.values.toList();
+                    if (list.isEmpty) {
+                      return const Text(
+                        'Play or browse a station first, then return here to give.',
+                        style: TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted),
+                      );
+                    }
+                    if (_selectedStation == null) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted && _selectedStation == null) {
+                          setState(() => _selectedStation = list.first);
+                        }
+                      });
+                    }
+                    return DropdownButtonFormField<String>(
+                      initialValue: _selectedStation?.id ?? list.first.id,
+                      items: list
+                          .map((s) => DropdownMenuItem(value: s.id, child: Text(s.name, overflow: TextOverflow.ellipsis)))
+                          .toList(),
+                      onChanged: (id) {
+                        setState(() {
+                          _selectedStation = list.firstWhere((s) => s.id == id, orElse: () => list.first);
+                        });
+                      },
+                    );
+                  },
+                  orElse: () => const LinearProgressIndicator(),
+                ),
+
+                const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -407,7 +457,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
                           : 'Giving Paused',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                     ),
-                    onPressed: config.givingEnabled ? () => _openGivingDialog(context, config, null) : null,
+                    onPressed: config.givingEnabled ? () => _startGiving(config, null) : null,
                   ),
                 ),
               ],
@@ -474,7 +524,7 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
                   final camp = campaigns[idx];
                   return _CampaignCard(
                     campaign: camp,
-                    onSupport: () => _openGivingDialog(context, config, camp),
+                    onSupport: () => _startGiving(config, camp),
                   );
                 },
               );
@@ -519,335 +569,27 @@ class _GivingScreenState extends ConsumerState<GivingScreen> {
     );
   }
 
-  void _openGivingDialog(BuildContext context, GivingConfig config, DonationCampaign? campaign) {
-    final user = ref.read(currentUserProvider);
-    final nameCtrl = TextEditingController(text: user?.name ?? '');
-    final emailCtrl = TextEditingController(text: user?.email ?? '');
-    final phoneCtrl = TextEditingController();
-    final messageCtrl = TextEditingController();
-    String selectedMethod = config.supportedPaymentMethods.isNotEmpty ? config.supportedPaymentMethods.first : 'MPESA';
-    bool isAnonymous = false;
-    bool isSubmitting = false;
-
+  Future<void> _startGiving(GivingConfig config, DonationCampaign? campaign) async {
     final amountVal = _customAmountCtrl.text.isNotEmpty
         ? (double.tryParse(_customAmountCtrl.text.trim()) ?? _selectedAmount.toDouble())
         : _selectedAmount.toDouble();
-
-    showDialog(
+    final station = campaign != null ? null : _selectedStation;
+    if (campaign == null && station == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Choose a station to support before giving.')),
+      );
+      return;
+    }
+    await showDonationFlow(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          return AlertDialog(
-            backgroundColor: AppColors.surface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEF4444).withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.favorite_rounded, color: Color(0xFFEF4444), size: 20),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    campaign != null ? 'Support ${campaign.title}' : 'Complete Kingdom Gift',
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Amount Summary Box
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.background,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.surfaceVariant),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                campaign != null ? 'Campaign Gift:' : 'Purpose: $_selectedPurpose',
-                                style: const TextStyle(fontSize: 11, color: AppColors.onSurfaceMuted),
-                              ),
-                              Text(
-                                '$_selectedCurrency ${amountVal.toStringAsFixed(0)}',
-                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.primary),
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColors.surface,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _selectedCurrency,
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: AppColors.onBackground),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Donor Name
-                    TextField(
-                      controller: nameCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Your Full Name *',
-                        prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Donor Email
-                    TextField(
-                      controller: emailCtrl,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'Email Address (For Receipt) *',
-                        prefixIcon: Icon(Icons.email_outlined, size: 20),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Phone
-                    TextField(
-                      controller: phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Mobile Number (e.g. 0712345678)',
-                        prefixIcon: Icon(Icons.phone_outlined, size: 20),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Payment Method selector (From Admin Settings)
-                    const Text('Payment Channel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedMethod,
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.account_balance_wallet_outlined, size: 20),
-                      ),
-                      items: config.supportedPaymentMethods.map((m) {
-                        String label = m;
-                        if (m == 'MPESA') label = 'M-Pesa (Vodacom)';
-                        if (m == 'TIGO_PESA') label = 'Tigo Pesa';
-                        if (m == 'AIRTEL_MONEY') label = 'Airtel Money';
-                        if (m == 'CARD') label = 'Visa / Mastercard';
-                        if (m == 'BANK_TRANSFER') label = 'Bank Wire / PesaPal';
-                        return DropdownMenuItem(value: m, child: Text(label, style: const TextStyle(fontSize: 13)));
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) setModalState(() => selectedMethod = val);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Dedication / Prayer Message
-                    TextField(
-                      controller: messageCtrl,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Prayer Note / Blessing (Optional)',
-                        prefixIcon: Icon(Icons.favorite_border_rounded, size: 20),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Anonymous checkbox
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: isAnonymous,
-                          activeColor: AppColors.primary,
-                          onChanged: (val) => setModalState(() => isAnonymous = val ?? false),
-                        ),
-                        const Expanded(
-                          child: Text('Keep my gift anonymous to the public', style: TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted)),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
-                child: const Text('Cancel', style: TextStyle(color: AppColors.onSurfaceMuted)),
-              ),
-              ElevatedButton(
-                onPressed: isSubmitting
-                    ? null
-                    : () async {
-                        final name = nameCtrl.text.trim();
-                        final email = emailCtrl.text.trim();
-                        if (name.isEmpty || email.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Please enter your name and email address.')),
-                          );
-                          return;
-                        }
-
-                        setModalState(() => isSubmitting = true);
-                        try {
-                          final givingApi = ref.read(givingApiProvider);
-                          final stationId = campaign?.stationId ?? 'stn_real_f7b53d4c_10';
-                          final result = await givingApi.submitDonation(
-                            stationId: stationId,
-                            donorName: name,
-                            donorEmail: email,
-                            donorPhone: phoneCtrl.text.trim(),
-                            amount: amountVal,
-                            currency: _selectedCurrency,
-                            paymentMethod: selectedMethod,
-                            campaignId: campaign?.id,
-                            fundType: campaign != null ? 'CAMPAIGN' : _selectedPurpose.toUpperCase().replaceAll(' ', '_'),
-                            message: messageCtrl.text.trim(),
-                            isAnonymous: isAnonymous,
-                          );
-
-                          if (ctx.mounted) Navigator.pop(dialogCtx);
-
-                          // Invalidate campaigns so updated raised amounts reflect
-                          ref.invalidate(campaignsProvider);
-
-                          // Show Success Dialog with Real Tracking ID
-                          if (context.mounted) {
-                            _showSuccessReceiptDialog(context, result, amountVal, _selectedCurrency);
-                          }
-                        } catch (err) {
-                          setModalState(() => isSubmitting = false);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: AppColors.error,
-                                content: Text('Donation failed: $err'),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                child: isSubmitting
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text('Complete Donation', style: TextStyle(fontWeight: FontWeight.w800)),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  void _showSuccessReceiptDialog(BuildContext context, DonationResult result, double amount, String currency) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle_rounded, color: AppColors.success, size: 28),
-            SizedBox(width: 10),
-            Text('Donation Received!', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'May the Lord richly bless your generosity and multiply your seed sown for the Gospel.',
-              style: TextStyle(fontSize: 13.5, color: AppColors.onSurface, height: 1.4),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.surfaceVariant),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('OFFICIAL RECEIPT TRACKING ID:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.onSurfaceMuted)),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        result.trackingId,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 0.5),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
-                        tooltip: 'Copy Tracking ID',
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: result.trackingId));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Tracking ID copied to clipboard!')),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Amount Sown:', style: TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted)),
-                      Text(
-                        '$currency ${amount.toStringAsFixed(0)}',
-                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: AppColors.onBackground),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Status:', style: TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted)),
-                      Text('VERIFIED / COMPLETED', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, color: AppColors.success)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Amen & Done', style: TextStyle(fontWeight: FontWeight.w800)),
-          ),
-        ],
-      ),
+      ref: ref,
+      config: config,
+      station: station,
+      campaign: campaign,
+      initialAmount: amountVal,
+      currency: _selectedCurrency,
+      purpose: _selectedPurpose,
     );
   }
 }

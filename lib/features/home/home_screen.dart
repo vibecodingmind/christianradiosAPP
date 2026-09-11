@@ -17,6 +17,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final List<Station> _allStations = [];
   int _currentPage = 1;
+  int _totalStations = 0;
   bool _isLoadingInitial = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -38,15 +39,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     try {
       final service = ref.read(stationsServiceProvider);
-      final stations = await service.getStations(
+      final page = await service.getStations(
         filter: const StationFilter(page: 1, limit: 45),
       );
       if (mounted) {
         setState(() {
           _allStations.clear();
-          _allStations.addAll(stations);
+          _allStations.addAll(page.stations);
+          _totalStations = page.total;
           _isLoadingInitial = false;
-          _hasMore = stations.length >= 45;
+          _hasMore = page.page < page.totalPages && page.stations.isNotEmpty;
         });
       }
     } catch (e) {
@@ -67,16 +69,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       final nextPage = _currentPage + 1;
       final service = ref.read(stationsServiceProvider);
-      final moreStations = await service.getStations(
+      final morePage = await service.getStations(
         filter: StationFilter(page: nextPage, limit: 45),
       );
 
       if (mounted) {
         setState(() {
           _currentPage = nextPage;
-          _allStations.addAll(moreStations);
+          _allStations.addAll(morePage.stations);
+          _totalStations = morePage.total;
           _isLoadingMore = false;
-          _hasMore = moreStations.length >= 45;
+          _hasMore = morePage.page < morePage.totalPages && morePage.stations.isNotEmpty;
         });
       }
     } catch (e) {
@@ -93,6 +96,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final featuredAsync = ref.watch(featuredStationsProvider);
     final platformConfigAsync = ref.watch(platformConfigProvider);
+    final statsAsync = ref.watch(platformStatsProvider);
+    final knownTotal = _totalStations > 0
+        ? _totalStations
+        : (statsAsync.value?.totalStations ?? 0);
 
     return Scaffold(
       appBar: AppBar(
@@ -186,6 +193,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onRefresh: () async {
           ref.invalidate(featuredStationsProvider);
           ref.invalidate(platformConfigProvider);
+          ref.invalidate(platformStatsProvider);
           await _loadInitialStations();
         },
         child: ListView(
@@ -299,7 +307,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     border: Border.all(color: AppColors.surfaceVariant),
                   ),
                   child: Text(
-                    _allStations.isNotEmpty ? '${_allStations.length} of 1,062+ Synced' : '1,062+ Available',
+                    knownTotal > 0
+                        ? '${_allStations.length} of $knownTotal synced'
+                        : '${_allStations.length} synced',
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -375,7 +385,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                               )
                             : Text(
-                                'Load More Stations (${_allStations.length} of 1,062+ loaded)',
+                                knownTotal > 0
+                                    ? 'Load more stations (${_allStations.length} of $knownTotal)'
+                                    : 'Load more stations',
                                 style: const TextStyle(fontWeight: FontWeight.w700),
                               ),
                       ),
@@ -383,12 +395,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 )
               else
-                const Center(
+                Center(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     child: Text(
-                      'All 1,062+ Stations Loaded',
-                      style: TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted, fontWeight: FontWeight.w600),
+                      knownTotal > 0
+                          ? 'All $knownTotal stations loaded'
+                          : 'All stations loaded',
+                      style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),

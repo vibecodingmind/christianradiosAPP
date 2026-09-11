@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_client.dart';
 import '../models/prayer.dart';
+import '../utils/json_codec.dart';
 
 final prayersApiProvider = Provider<PrayersApi>((ref) => PrayersApi(buildDio()));
 
@@ -20,9 +21,10 @@ class PrayersApi {
 
     final resp = await _dio.get('/public/prayers', queryParameters: q);
     final data = resp.data;
-    final List<dynamic> items = data is Map ? (data['prayers'] ?? []) : (data as List);
+    final items = asList(asStringKeyMap(data)['prayers'] ?? data);
     List<PrayerRequest> prayers = items
-        .map((e) => PrayerRequest.fromJson(e as Map<String, dynamic>))
+        .whereType<Map>()
+        .map((e) => PrayerRequest.fromJson(asStringKeyMap(e)))
         .toList();
 
     if (category == 'Answered') {
@@ -54,10 +56,8 @@ class PrayersApi {
         'stationId': stationId,
       },
     );
-    final data = resp.data;
-    final Map<String, dynamic> item = data is Map && data.containsKey('prayer')
-        ? (data['prayer'] as Map<String, dynamic>)
-        : (data as Map<String, dynamic>);
+    final data = asStringKeyMap(resp.data);
+    final item = data.containsKey('prayer') ? asStringKeyMap(data['prayer']) : data;
     return PrayerRequest.fromJson(item);
   }
 }

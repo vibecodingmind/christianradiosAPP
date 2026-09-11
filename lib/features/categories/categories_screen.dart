@@ -81,7 +81,7 @@ class CategoriesScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           children: [
             const Text(
-              'Explore 1,000+ Stations by Category',
+              'Explore stations by category',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,

@@ -35,6 +35,32 @@ void main() {
       expect(station.isFeatured, isTrue);
     });
 
+    test('fromJson reads nested country and alternate bitrate fields', () {
+      final json = {
+        'id': 'awr_1',
+        'name': 'Radio Stereo Adventista',
+        'genre': 'teaching',
+        'format': 'mp3',
+        'country': {'code': 'SV', 'name': 'El Salvador', 'flagEmoji': '🇸🇻'},
+        'logoUrl': 'https://example.com/logo.png',
+        'category': {'id': 'cat_awr', 'name': 'Adventist World Radios'},
+        'streamUrl': 'https://example.com/stream.mp3',
+        'bitrate': 128,
+        'listenerCount': 755,
+        'streamStatus': 'ONLINE',
+        'isFeatured': true,
+      };
+
+      final station = Station.fromJson(json);
+      expect(station.countryCode, 'SV');
+      expect(station.countryName, 'El Salvador');
+      expect(station.categoryId, 'cat_awr');
+      expect(station.bitrateKbps, 128);
+      expect(station.currentListenersCount, 755);
+      expect(station.streamType, 'MP3');
+      expect(station.locationLabel, contains('El Salvador'));
+    });
+
     test('toJson serializes station correctly', () {
       const station = Station(
         id: 'stn_2',
