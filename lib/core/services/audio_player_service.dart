@@ -1,4 +1,5 @@
 import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
 import '../models/station.dart';
@@ -9,15 +10,43 @@ final audioHandlerProvider = Provider<AudioPlayerHandler>((ref) {
 });
 
 final currentStationProvider = StateProvider<Station?>((ref) => null);
-final isPlayingProvider = StateProvider<bool>((ref) => false);
-final isLoadingProvider = StateProvider<bool>((ref) => false);
+
+final playbackStateProvider = StreamProvider<PlaybackState>((ref) {
+  final handler = ref.watch(audioHandlerProvider);
+  return handler.playbackState;
+});
+
+final isPlayingProvider = Provider<bool>((ref) {
+  final state = ref.watch(playbackStateProvider).value;
+  return state?.playing ?? false;
+});
+
+final isLoadingProvider = Provider<bool>((ref) {
+  final state = ref.watch(playbackStateProvider).value;
+  if (state == null) return false;
+  return state.processingState == AudioProcessingState.loading ||
+      state.processingState == AudioProcessingState.buffering;
+});
+
+final volumeStreamProvider = StreamProvider<double>((ref) {
+  final handler = ref.watch(audioHandlerProvider);
+  return handler.volumeStream;
+});
+
+final volumeLevelProvider = Provider<double>((ref) {
+  final asyncVal = ref.watch(volumeStreamProvider);
+  return asyncVal.value ?? ref.watch(audioHandlerProvider).volume;
+});
+
 final playerErrorProvider = StateProvider<String?>((ref) => null);
 
 class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
   final AudioPlayer _player = AudioPlayer();
   Station? _currentStation;
+  double _lastNonZeroVolume = 1.0;
 
   AudioPlayerHandler() {
+    _initAudioSession();
     _player.playerStateStream.listen((state) {
       playbackState.add(playbackState.value.copyWith(
         controls: [
@@ -34,6 +63,15 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
         playing: state.playing,
       ));
     });
+  }
+
+  Future<void> _initAudioSession() async {
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration.music());
+    } catch (_) {
+      // AudioSession fallback if platform channel unavailable
+    }
   }
 
   Future<void> playStation(Station station) async {
@@ -81,4 +119,24 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
   bool get isPlaying => _player.playing;
   Station? get currentStation => _currentStation;
   Stream<PlayerState> get playerStateStream => _player.playerStateStream;
+
+  double get volume => _player.volume;
+  Stream<double> get volumeStream => _player.volumeStream;
+
+  Future<void> setVolume(double val) async {
+    final clamped = val.clamp(0.0, 1.0);
+    if (clamped > 0.02) {
+      _lastNonZeroVolume = clamped;
+    }
+    await _player.setVolume(clamped);
+  }
+
+  Future<void> toggleMute() async {
+    if (_player.volume > 0.02) {
+      _lastNonZeroVolume = _player.volume;
+      await _player.setVolume(0.0);
+    } else {
+      await _player.setVolume(_lastNonZeroVolume > 0.05 ? _lastNonZeroVolume : 0.85);
+    }
+  }
 }

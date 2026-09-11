@@ -34,6 +34,21 @@ class CurrentUserNotifier extends StateNotifier<AppUser?> {
     state = result.user;
   }
 
+  Future<void> loginSocial({
+    required String provider,
+    required String name,
+    required String email,
+    String? avatarUrl,
+  }) async {
+    final result = await _service.socialAuth(
+      provider: provider,
+      name: name,
+      email: email,
+      avatarUrl: avatarUrl,
+    );
+    state = result.user;
+  }
+
   Future<void> logout() async {
     await _service.logout();
     state = null;
@@ -52,6 +67,13 @@ class AuthService {
     required String email,
     required String password,
   }) => _api.register(name: name, email: email, password: password);
+
+  Future<({AppUser user, String token})> socialAuth({
+    required String provider,
+    required String email,
+    required String name,
+    String? avatarUrl,
+  }) => _api.socialAuth(provider: provider, email: email, name: name, avatarUrl: avatarUrl);
 
   Future<AppUser?> getMe() => _api.getMe();
   Future<void> logout() => _api.logout();

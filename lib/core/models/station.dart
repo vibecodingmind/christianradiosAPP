@@ -12,6 +12,9 @@ class Station {
   final String categoryId;
   final String? denomination;
   final String? websiteUrl;
+  final String? email;
+  final String? phone;
+  final String? city;
   final String streamUrl;
   final String? backupStreamUrl;
   final String streamType;
@@ -37,6 +40,9 @@ class Station {
     required this.categoryId,
     this.denomination,
     this.websiteUrl,
+    this.email,
+    this.phone,
+    this.city,
     required this.streamUrl,
     this.backupStreamUrl,
     required this.streamType,
@@ -66,6 +72,9 @@ class Station {
     categoryId: json['categoryId'] as String? ?? '',
     denomination: json['denomination'] as String?,
     websiteUrl: json['websiteUrl'] as String?,
+    email: json['email'] as String?,
+    phone: json['phone'] as String?,
+    city: json['city'] as String?,
     streamUrl: json['streamUrl'] as String? ?? '',
     backupStreamUrl: json['backupStreamUrl'] as String?,
     streamType: json['streamType'] as String? ?? 'MP3',
@@ -92,6 +101,9 @@ class Station {
     'categoryId': categoryId,
     'denomination': denomination,
     'websiteUrl': websiteUrl,
+    'email': email,
+    'phone': phone,
+    'city': city,
     'streamUrl': streamUrl,
     'backupStreamUrl': backupStreamUrl,
     'streamType': streamType,

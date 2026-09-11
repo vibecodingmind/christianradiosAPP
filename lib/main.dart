@@ -24,18 +24,22 @@ Future<void> main() async {
     systemNavigationBarIconBrightness: Brightness.light,
   ));
 
-  // Init Hive offline cache
+  // Init Hive offline cache & pre-warm boxes
   await Hive.initFlutter();
+  await Future.wait([
+    Hive.openBox('stations_cache'),
+    Hive.openBox('app_settings'),
+  ]);
 
   // Init background audio service
   final audioHandler = await AudioService.init(
     builder: () => AudioPlayerHandler(),
-    config: AudioServiceConfig(
+    config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.christianradios.app.audio',
       androidNotificationChannelName: 'Christian Radios',
       androidNotificationOngoing: true,
-      androidStopForegroundOnPause: false,
-      notificationColor: const Color(0xFF38BDF8),
+      androidStopForegroundOnPause: true,
+      notificationColor: Color(0xFF38BDF8),
       androidNotificationIcon: 'mipmap/ic_launcher',
     ),
   );
