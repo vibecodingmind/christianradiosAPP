@@ -156,3 +156,55 @@ class _AudioWaveIndicatorState extends State<AudioWaveIndicator>
     );
   }
 }
+
+/// Centered animated audio-wave preloader used across screens while fetching stations/categories/prayers.
+class AudioWavePreloader extends StatelessWidget {
+  final String? label;
+  final double height;
+  final int barCount;
+  final Color? color;
+
+  const AudioWavePreloader({
+    super.key,
+    this.label,
+    this.height = 32,
+    this.barCount = 7,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor = color ?? AppColors.pinkAccent;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AudioWaveIndicator(
+            isPlaying: true,
+            barCount: barCount,
+            height: height,
+            activeColor: activeColor,
+            gradient: LinearGradient(
+              colors: [AppColors.royalBlue, activeColor],
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+            ),
+          ),
+          if (label != null && label!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              label!,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textMuted(context),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+

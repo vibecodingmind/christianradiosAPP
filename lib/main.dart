@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -54,16 +55,27 @@ Future<void> main() async {
   );
 }
 
-class ChristianRadiosApp extends StatelessWidget {
+class ChristianRadiosApp extends ConsumerWidget {
   const ChristianRadiosApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    final stylePreset = ref.watch(appStyleProvider);
     return MaterialApp.router(
       title: 'Christian Radios',
-      theme: buildAppTheme(),
+      theme: buildLightTheme(stylePreset),
+      darkTheme: buildDarkTheme(stylePreset),
+      themeMode: themeMode,
       routerConfig: appRouter,
       debugShowCheckedModeBanner: false,
+      scrollBehavior: const MaterialScrollBehavior().copyWith(
+        dragDevices: {
+          PointerDeviceKind.touch,
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.trackpad,
+        },
+      ),
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),

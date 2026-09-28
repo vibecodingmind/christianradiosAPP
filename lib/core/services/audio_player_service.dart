@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,6 +40,86 @@ final volumeLevelProvider = Provider<double>((ref) {
 });
 
 final playerErrorProvider = StateProvider<String?>((ref) => null);
+
+/// Live Second-by-Second Sleep Timer State & Notifier
+class SleepTimerState {
+  final int? selectedMinutes;
+  final int remainingSeconds;
+
+  const SleepTimerState({
+    required this.selectedMinutes,
+    required this.remainingSeconds,
+  });
+
+  const SleepTimerState.off()
+      : selectedMinutes = null,
+        remainingSeconds = 0;
+
+  bool get isActive => selectedMinutes != null && remainingSeconds > 0;
+
+  /// Formats remaining seconds as MM:SS (or HH:MM:SS if >= 1 hour)
+  String get formattedCountdown {
+    if (remainingSeconds <= 0) return '00:00';
+    final hours = remainingSeconds ~/ 3600;
+    final minutes = (remainingSeconds % 3600) ~/ 60;
+    final seconds = remainingSeconds % 60;
+    final mm = minutes.toString().padLeft(2, '0');
+    final ss = seconds.toString().padLeft(2, '0');
+    if (hours > 0) {
+      final hh = hours.toString().padLeft(2, '0');
+      return '$hh:$mm:$ss';
+    }
+    return '$mm:$ss';
+  }
+}
+
+class SleepTimerNotifier extends StateNotifier<SleepTimerState> {
+  final Ref _ref;
+  Timer? _ticker;
+
+  SleepTimerNotifier(this._ref) : super(const SleepTimerState.off());
+
+  void setTimer(int? minutes) {
+    _ticker?.cancel();
+    if (minutes == null || minutes <= 0) {
+      state = const SleepTimerState.off();
+      return;
+    }
+
+    final totalSeconds = minutes * 60;
+    state = SleepTimerState(
+      selectedMinutes: minutes,
+      remainingSeconds: totalSeconds,
+    );
+
+    _ticker = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      final nextSeconds = state.remainingSeconds - 1;
+      if (nextSeconds <= 0) {
+        timer.cancel();
+        state = const SleepTimerState.off();
+        try {
+          await _ref.read(audioHandlerProvider).pause();
+        } catch (_) {}
+      } else {
+        state = SleepTimerState(
+          selectedMinutes: state.selectedMinutes,
+          remainingSeconds: nextSeconds,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+}
+
+final sleepTimerProvider =
+    StateNotifierProvider<SleepTimerNotifier, SleepTimerState>((ref) {
+  return SleepTimerNotifier(ref);
+});
 
 class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
   final AudioPlayer _player = AudioPlayer();
@@ -86,14 +167,22 @@ class AudioPlayerHandler extends BaseAudioHandler with SeekHandler {
       extras: {'streamUrl': station.streamUrl},
     ));
 
+    // Optimistically emit playing=true immediately so UI & wave indicators respond at 0ms
+    playbackState.add(playbackState.value.copyWith(
+      controls: [MediaControl.pause, MediaControl.stop],
+      processingState: AudioProcessingState.loading,
+      playing: true,
+    ));
+
     try {
-      await _player.stop();
-      await _player.setUrl(station.streamUrl);
+      // preload: false ensures setUrl does not block waiting for live stream headers
+      // before calling .play(), preserving browser user-gesture autoplay and starting audio faster.
+      await _player.setUrl(station.streamUrl, preload: false);
       await _player.play();
     } catch (_) {
       if (station.backupStreamUrl != null && station.backupStreamUrl!.isNotEmpty) {
         try {
-          await _player.setUrl(station.backupStreamUrl!);
+          await _player.setUrl(station.backupStreamUrl!, preload: false);
           await _player.play();
         } catch (e) {
           rethrow;

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="christian_radios_app">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Christian Radios — Live Gospel & Worship</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #F4F5F9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #wave-preloader {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, #1E295B 0%, #10173A 100%);
+      z-index: 99999;
+      transition: opacity 0.35s ease;
+    }
+    .wave-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 5px;
+      height: 44px;
+    }
+    .wave-bar {
+      width: 5px;
+      border-radius: 4px;
+      background: linear-gradient(180deg, #E11D48 0%, #38BDF8 100%);
+      animation: wavePulse 1.05s ease-in-out infinite;
+    }
+    .wave-bar:nth-child(1) { height: 14px; animation-delay: 0.00s; }
+    .wave-bar:nth-child(2) { height: 26px; animation-delay: 0.12s; }
+    .wave-bar:nth-child(3) { height: 38px; animation-delay: 0.24s; }
+    .wave-bar:nth-child(4) { height: 44px; animation-delay: 0.36s; }
+    .wave-bar:nth-child(5) { height: 38px; animation-delay: 0.48s; }
+    .wave-bar:nth-child(6) { height: 26px; animation-delay: 0.60s; }
+    .wave-bar:nth-child(7) { height: 14px; animation-delay: 0.72s; }
+    @keyframes wavePulse {
+      0%, 100% { transform: scaleY(0.35); opacity: 0.65; }
+      50% { transform: scaleY(1); opacity: 1; }
+    }
+    .wave-title {
+      margin-top: 18px;
+      color: #FFFFFF;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .wave-sub {
+      margin-top: 4px;
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 12.5px;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+  <div id="wave-preloader">
+    <div class="wave-bars">
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+    </div>
+    <div class="wave-title">Christian Radios</div>
+    <div class="wave-sub">Tuning live gospel waves...</div>
+  </div>
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var loader = document.getElementById('wave-preloader');
+      if (loader) {
+        loader.style.opacity = '0';
+        setTimeout(function () { loader.remove(); }, 360);
+      }
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

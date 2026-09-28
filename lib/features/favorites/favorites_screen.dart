@@ -1,70 +1,86 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/services/auth_service.dart';
-import 'package:go_router/go_router.dart';
 import '../../core/services/favorites_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/app_menu_sheet.dart';
 import '../../shared/widgets/station_card.dart';
 
 class FavoritesScreen extends ConsumerWidget {
-  const FavoritesScreen({super.key});
+  final bool embedded;
+  const FavoritesScreen({super.key, this.embedded = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(currentUserProvider);
     final favorites = ref.watch(favoritesProvider);
+    final textPrimary = AppColors.textPrimary(context);
+    final textMuted = AppColors.textMuted(context);
 
-    if (user == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Favorites')),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.favorite_outline, size: 64, color: AppColors.onSurfaceMuted),
-                const SizedBox(height: 16),
-                const Text(
-                  'Sign in to save your favorite stations',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.onSurface, fontSize: 16),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => context.go('/profile'),
-                  child: const Text('Sign In'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('My Favorites')),
-      body: favorites.isEmpty
-          ? Center(
+    final body = favorites.isEmpty
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 36),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.favorite_outline, size: 64, color: AppColors.onSurfaceMuted),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'No favorites yet.\nTap the heart on any station to save it.',
+                  Icon(
+                    Icons.favorite_border_rounded,
+                    size: 78,
+                    color: textMuted.withValues(alpha: 0.7),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Whoops!',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    "You don't have any favorite radios in your list.\nAdd some radios to access them quickly.",
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.onSurfaceMuted, fontSize: 15),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: textMuted,
+                      height: 1.5,
+                    ),
                   ),
                 ],
               ),
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: favorites.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, i) => StationCard(station: favorites[i], compact: true),
             ),
+          )
+        : ListView.separated(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
+            itemCount: favorites.length,
+            separatorBuilder: (_, __) => Divider(
+              height: 1,
+              indent: 70,
+              color: AppColors.border(context).withValues(alpha: 0.55),
+            ),
+            itemBuilder: (_, index) => StationCard(
+              station: favorites[index],
+              compact: true,
+            ),
+          );
+
+    if (embedded) return body;
+
+    return Scaffold(
+      backgroundColor: AppColors.scaffoldBg(context),
+      appBar: AppBar(
+        backgroundColor: AppColors.appBarBg(context),
+        title: const Text('Favorite Radios'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 25),
+            tooltip: 'App Menu',
+            onPressed: () => AppMenuSheet.show(context),
+          ),
+          const SizedBox(width: 6),
+        ],
+      ),
+      body: body,
     );
   }
 }

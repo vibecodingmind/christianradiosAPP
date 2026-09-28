@@ -7,6 +7,8 @@ import '../../core/models/prayer.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/prayers_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/audio_wave_indicator.dart';
+import '../../shared/widgets/brand_logo.dart';
 
 class PrayersScreen extends ConsumerStatefulWidget {
   const PrayersScreen({super.key});
@@ -35,106 +37,132 @@ class _PrayersScreenState extends ConsumerState<PrayersScreen> {
     super.dispose();
   }
 
-  void _showLoginRequiredDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.lock_rounded, color: AppColors.accent, size: 24),
-            SizedBox(width: 10),
-            Text('Sign In Required', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-          ],
-        ),
-        content: const Text(
-          'Please sign in or create an account to post your prayer request on the global prayer wall. You must be logged in first so our prayer community can stand in faith with you.',
-          style: TextStyle(color: AppColors.onSurfaceMuted, height: 1.5, fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.onSurfaceMuted)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.background,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () {
-              Navigator.pop(ctx);
-              context.push('/profile');
-            },
-            child: const Text('Sign In Now', style: TextStyle(fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
+    final stylePreset = ref.watch(appStyleProvider);
+    final primaryColor = stylePreset.primary;
     final selectedCategory = ref.watch(selectedPrayerCategoryProvider);
     final prayersAsync = ref.watch(prayersListProvider);
     final prayedIds = ref.watch(prayedIdsProvider);
+    final textPrimary = AppColors.textPrimary(context);
+    final textMuted = AppColors.textMuted(context);
+    final cardBg = AppColors.cardBg(context);
+    final border = AppColors.border(context);
 
     return Scaffold(
+      backgroundColor: AppColors.scaffoldBg(context),
       appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.accent, AppColors.primary],
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(Icons.favorite, color: Colors.white, size: 18),
-            ),
-            const SizedBox(width: 10),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Prayer Wall', style: TextStyle(fontWeight: FontWeight.w800)),
-                Text(
-                  'Global Intercession',
-                  style: TextStyle(fontSize: 11, color: AppColors.onSurfaceMuted),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: user != null ? AppColors.primary : AppColors.surface,
-        foregroundColor: user != null ? AppColors.background : AppColors.onSurface,
-        elevation: 4,
-        icon: Icon(user != null ? Icons.add_rounded : Icons.lock_outline_rounded),
-        label: Text(
-          user != null ? 'Request Prayer' : 'Sign In to Request Prayer',
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        onPressed: () {
-          if (user == null) {
-            _showLoginRequiredDialog(context);
-          } else {
-            _showCreatePrayerSheet(context);
-          }
-        },
+        backgroundColor: AppColors.appBarBg(context),
+        title: const Text('Prayer Fellowship Wall'),
+        actions: const [
+          AppHeaderActions(),
+        ],
       ),
       body: RefreshIndicator(
-        color: AppColors.primary,
-        backgroundColor: AppColors.surface,
+        color: primaryColor,
+        backgroundColor: cardBg,
         onRefresh: () async {
           ref.invalidate(prayersListProvider);
         },
         child: Column(
           children: [
+            // Top Prayer Request Action Section (Not floating)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+              child: user == null
+                  ? InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () => context.go('/profile'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                        decoration: BoxDecoration(
+                          color: cardBg,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: primaryColor.withValues(alpha: 0.35),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: primaryColor.withValues(alpha: 0.08),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: primaryColor.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.lock_outline_rounded,
+                                color: primaryColor,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Sign in to post a prayer request',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: textPrimary,
+                                  letterSpacing: -0.1,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1B2038),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Text(
+                                'Sign In',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1B2038),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                        label: const Text(
+                          'Prayer Request',
+                          style: TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        onPressed: () => _showCreatePrayerSheet(context),
+                      ),
+                    ),
+            ),
+
             // Search & Category Filters
             Container(
               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -147,10 +175,10 @@ class _PrayersScreenState extends ConsumerState<PrayersScreen> {
                       controller: _searchCtrl,
                       decoration: InputDecoration(
                         hintText: 'Search prayer requests...',
-                        prefixIcon: const Icon(Icons.search, color: AppColors.onSurfaceMuted),
+                        prefixIcon: Icon(Icons.search, color: textMuted),
                         suffixIcon: _searchCtrl.text.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.clear, color: AppColors.onSurfaceMuted),
+                                icon: Icon(Icons.clear, color: textMuted),
                                 onPressed: () {
                                   _searchCtrl.clear();
                                   ref.read(prayerSearchQueryProvider.notifier).state = '';
@@ -180,16 +208,16 @@ class _PrayersScreenState extends ConsumerState<PrayersScreen> {
                           label: Text(
                             cat,
                             style: TextStyle(
-                              color: isSelected ? Colors.white : AppColors.onSurface,
+                              color: isSelected ? Colors.white : textPrimary,
                               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                               fontSize: 13,
                             ),
                           ),
                           selected: isSelected,
-                          selectedColor: AppColors.primaryDark,
-                          backgroundColor: AppColors.surface,
+                          selectedColor: AppColors.royalBlue,
+                          backgroundColor: cardBg,
                           side: BorderSide(
-                            color: isSelected ? AppColors.primary : AppColors.surfaceVariant,
+                            color: isSelected ? AppColors.royalBlue : border,
                           ),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                           onSelected: (_) {
@@ -204,61 +232,11 @@ class _PrayersScreenState extends ConsumerState<PrayersScreen> {
               ),
             ),
 
-            if (user == null)
-              Container(
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.surfaceVariant),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(Icons.lock_outline_rounded, color: AppColors.accent, size: 18),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Sign In to Request Prayer',
-                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppColors.onBackground),
-                          ),
-                          SizedBox(height: 2),
-                          Text(
-                            'Must be logged in first to submit prayer requests.',
-                            style: TextStyle(fontSize: 11, color: AppColors.onSurfaceMuted),
-                          ),
-                        ],
-                      ),
-                    ),
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      onPressed: () => _showLoginRequiredDialog(context),
-                      child: const Text('Sign In', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
-                    ),
-                  ],
-                ),
-              ),
-
             // Prayer Requests List
             Expanded(
               child: prayersAsync.when(
-                loading: () => const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
+                loading: () => const AudioWavePreloader(
+                  label: 'Loading community prayers...',
                 ),
                 error: (err, _) => Center(
                   child: Padding(
@@ -266,17 +244,17 @@ class _PrayersScreenState extends ConsumerState<PrayersScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.cloud_off_rounded, size: 56, color: AppColors.onSurfaceMuted),
+                        Icon(Icons.cloud_off_rounded, size: 56, color: textMuted),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           'Could not load prayer requests',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: textPrimary),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           '$err',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 13, color: AppColors.onSurfaceMuted),
+                          style: TextStyle(fontSize: 13, color: textMuted),
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton.icon(
@@ -299,13 +277,13 @@ class _PrayersScreenState extends ConsumerState<PrayersScreen> {
                             Container(
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
-                                color: AppColors.surface,
+                                color: cardBg,
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
                                 Icons.volunteer_activism_rounded,
                                 size: 48,
-                                color: AppColors.accent,
+                                color: AppColors.pinkAccent,
                               ),
                             ),
                             const SizedBox(height: 20),
@@ -313,28 +291,34 @@ class _PrayersScreenState extends ConsumerState<PrayersScreen> {
                               selectedCategory == 'All'
                                   ? 'No prayer requests yet'
                                   : 'No requests in "$selectedCategory"',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
-                                color: AppColors.onBackground,
+                                color: textPrimary,
                               ),
                             ),
                             const SizedBox(height: 8),
-                            const Text(
+                            Text(
                               'Be the first to share a request so our global family can pray with you.',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: AppColors.onSurfaceMuted, fontSize: 14),
+                              style: TextStyle(color: textMuted, fontSize: 14),
                             ),
                             const SizedBox(height: 20),
                             OutlinedButton.icon(
-                              icon: Icon(user != null ? Icons.add : Icons.lock_outline_rounded, color: AppColors.primary),
-                              label: Text(user != null ? 'Post First Prayer' : 'Sign In to Post Prayer', style: const TextStyle(color: AppColors.primary)),
+                              icon: Icon(
+                                user == null ? Icons.login_rounded : Icons.add_circle_outline_rounded,
+                                color: primaryColor,
+                              ),
+                              label: Text(
+                                user == null ? 'Sign in to post a prayer request' : 'Prayer Request',
+                                style: TextStyle(color: primaryColor),
+                              ),
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: AppColors.primary),
+                                side: BorderSide(color: primaryColor),
                               ),
                               onPressed: () {
                                 if (user == null) {
-                                  _showLoginRequiredDialog(context);
+                                  context.go('/profile');
                                 } else {
                                   _showCreatePrayerSheet(context);
                                 }
@@ -347,7 +331,7 @@ class _PrayersScreenState extends ConsumerState<PrayersScreen> {
                   }
 
                   return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 140),
                     itemCount: prayers.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, i) {
@@ -392,7 +376,6 @@ class _PrayersScreenState extends ConsumerState<PrayersScreen> {
           ],
         ),
         duration: Duration(seconds: 2),
-        backgroundColor: AppColors.surface,
       ),
     );
   }
@@ -406,11 +389,90 @@ class _PrayersScreenState extends ConsumerState<PrayersScreen> {
     );
   }
 
+  void _showLoginRequiredDialog(BuildContext context) {
+    final textPrimary = AppColors.textPrimary(context);
+    final textMuted = AppColors.textMuted(context);
+    final primaryColor = ref.read(appStyleProvider).primary;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.cardBg(context),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(color: AppColors.border(context)),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: primaryColor.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.lock_rounded, color: primaryColor, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Account Required',
+                style: TextStyle(
+                  fontSize: 17.5,
+                  fontWeight: FontWeight.w800,
+                  color: textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Only registered listeners can post prayer requests on the Prayer Fellowship Wall. Sign in or create a free Listener Account to share your prayer request.',
+          style: TextStyle(
+            fontSize: 13.5,
+            color: textMuted,
+            height: 1.5,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Not Now',
+              style: TextStyle(color: textMuted, fontWeight: FontWeight.w700),
+            ),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            icon: const Icon(Icons.login_rounded, size: 18),
+            label: const Text(
+              'Sign In / Register',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.go('/profile');
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showCreatePrayerSheet(BuildContext context) {
+    if (ref.read(currentUserProvider) == null) {
+      _showLoginRequiredDialog(context);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.cardBg(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -435,39 +497,50 @@ class _PrayerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isAnswered = prayer.status == 'ANSWERED';
+    final textPrimary = AppColors.textPrimary(context);
+    final textMuted = AppColors.textMuted(context);
+    final cardBg = AppColors.cardBg(context);
+    final border = AppColors.border(context);
 
     Color categoryColor;
     switch (prayer.category) {
       case 'Healing':
-        categoryColor = const Color(0xFF38BDF8); // sky
+        categoryColor = const Color(0xFF0284C7); // sky
         break;
       case 'Salvation':
-        categoryColor = const Color(0xFFFBBF24); // amber
+        categoryColor = const Color(0xFFD97706); // amber
         break;
       case 'Financial':
-        categoryColor = const Color(0xFF34D399); // emerald
+        categoryColor = const Color(0xFF059669); // emerald
         break;
       case 'Family':
-        categoryColor = const Color(0xFFA78BFA); // violet
+        categoryColor = const Color(0xFF7C3AED); // violet
         break;
       case 'Peace':
-        categoryColor = const Color(0xFF818CF8); // indigo
+        categoryColor = const Color(0xFF4F46E5); // indigo
         break;
       case 'Ministry':
-        categoryColor = const Color(0xFFF472B6); // pink
+        categoryColor = const Color(0xFFE11D48); // pink/rose
         break;
       default:
-        categoryColor = const Color(0xFF94A3B8); // slate
+        categoryColor = const Color(0xFF64748B); // slate
     }
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isAnswered ? AppColors.success.withValues(alpha: 0.5) : AppColors.surfaceVariant.withValues(alpha: 0.7),
+          color: isAnswered ? AppColors.success.withValues(alpha: 0.5) : border,
           width: isAnswered ? 1.5 : 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -478,7 +551,7 @@ class _PrayerCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 18,
-                backgroundColor: isAnswered ? AppColors.success.withValues(alpha: 0.2) : categoryColor.withValues(alpha: 0.2),
+                backgroundColor: isAnswered ? AppColors.success.withValues(alpha: 0.16) : categoryColor.withValues(alpha: 0.14),
                 child: Icon(
                   prayer.isAnonymous ? Icons.shield_outlined : Icons.person_rounded,
                   color: isAnswered ? AppColors.success : categoryColor,
@@ -492,18 +565,33 @@ class _PrayerCard extends StatelessWidget {
                   children: [
                     Text(
                       prayer.isAnonymous ? 'Anonymous Listener' : prayer.authorName,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
-                        color: AppColors.onBackground,
+                        color: textPrimary,
                       ),
                     ),
                     if (prayer.stationName != null)
-                      Text(
-                        '📻 ${prayer.stationName}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.radio_rounded, size: 12, color: AppColors.royalBlue),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                prayer.stationName!,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: AppColors.royalBlue,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                   ],
                 ),
@@ -511,9 +599,9 @@ class _PrayerCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: categoryColor.withValues(alpha: 0.15),
+                  color: categoryColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: categoryColor.withValues(alpha: 0.4)),
+                  border: Border.all(color: categoryColor.withValues(alpha: 0.35)),
                 ),
                 child: Text(
                   prayer.category,
@@ -532,10 +620,10 @@ class _PrayerCard extends StatelessWidget {
           // Prayer Title
           Text(
             prayer.title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: AppColors.onBackground,
+              color: textPrimary,
               letterSpacing: -0.2,
             ),
           ),
@@ -545,9 +633,9 @@ class _PrayerCard extends StatelessWidget {
           // Prayer Points / Body
           Text(
             prayer.prayerPoints,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
-              color: AppColors.onSurface,
+              color: textMuted,
               height: 1.45,
             ),
           ),
@@ -584,7 +672,7 @@ class _PrayerCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     prayer.testimony!,
-                    style: const TextStyle(fontSize: 13, color: AppColors.onBackground, fontStyle: FontStyle.italic),
+                    style: TextStyle(fontSize: 13, color: textPrimary, fontStyle: FontStyle.italic),
                   ),
                 ],
               ),
@@ -592,7 +680,7 @@ class _PrayerCard extends StatelessWidget {
           ],
 
           const SizedBox(height: 14),
-          const Divider(color: AppColors.surfaceVariant, height: 1),
+          Divider(color: border, height: 1),
           const SizedBox(height: 10),
 
           // Footer: Prayed count button & Share button
@@ -605,10 +693,12 @@ class _PrayerCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: hasPrayed ? AppColors.primary.withValues(alpha: 0.2) : AppColors.surfaceVariant.withValues(alpha: 0.5),
+                    color: hasPrayed
+                        ? AppColors.pinkAccent.withValues(alpha: 0.14)
+                        : AppColors.scaffoldBg(context),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: hasPrayed ? AppColors.primary : Colors.transparent,
+                      color: hasPrayed ? AppColors.pinkAccent : border,
                     ),
                   ),
                   child: Row(
@@ -616,7 +706,7 @@ class _PrayerCard extends StatelessWidget {
                     children: [
                       Icon(
                         hasPrayed ? Icons.favorite_rounded : Icons.volunteer_activism_rounded,
-                        color: hasPrayed ? AppColors.primary : AppColors.onSurface,
+                        color: hasPrayed ? AppColors.pinkAccent : AppColors.royalBlue,
                         size: 18,
                       ),
                       const SizedBox(width: 6),
@@ -625,7 +715,7 @@ class _PrayerCard extends StatelessWidget {
                             ? 'Prayed (${prayer.prayedCount + 1})'
                             : 'I Prayed (${prayer.prayedCount})',
                         style: TextStyle(
-                          color: hasPrayed ? AppColors.primary : AppColors.onSurface,
+                          color: hasPrayed ? AppColors.pinkAccent : textPrimary,
                           fontWeight: FontWeight.w700,
                           fontSize: 13,
                         ),
@@ -636,7 +726,7 @@ class _PrayerCard extends StatelessWidget {
               ),
 
               IconButton(
-                icon: const Icon(Icons.share_outlined, color: AppColors.onSurfaceMuted, size: 20),
+                icon: Icon(Icons.share_outlined, color: textMuted, size: 20),
                 tooltip: 'Share request',
                 onPressed: onShare,
               ),
@@ -686,6 +776,9 @@ class _CreatePrayerSheetState extends ConsumerState<_CreatePrayerSheet> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
+    final textPrimary = AppColors.textPrimary(context);
+    final textMuted = AppColors.textMuted(context);
+    final border = AppColors.border(context);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -702,24 +795,24 @@ class _CreatePrayerSheetState extends ConsumerState<_CreatePrayerSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Post Prayer Request',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.onBackground),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: textPrimary),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, color: AppColors.onSurfaceMuted),
+                  icon: Icon(Icons.close_rounded, color: textMuted),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
-            const Text(
+            Text(
               'Share your heart so the body of Christ can intercede with you.',
-              style: TextStyle(fontSize: 13, color: AppColors.onSurfaceMuted),
+              style: TextStyle(fontSize: 13, color: textMuted),
             ),
             const SizedBox(height: 18),
 
             // Category picker
-            const Text('Category', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            Text('Category', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: textPrimary)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -727,10 +820,11 @@ class _CreatePrayerSheetState extends ConsumerState<_CreatePrayerSheet> {
               children: _categories.map((c) {
                 final isSel = _category == c;
                 return ChoiceChip(
-                  label: Text(c, style: TextStyle(fontSize: 12, color: isSel ? Colors.white : AppColors.onSurface)),
+                  label: Text(c, style: TextStyle(fontSize: 12, color: isSel ? Colors.white : textPrimary)),
                   selected: isSel,
-                  selectedColor: AppColors.primaryDark,
-                  backgroundColor: AppColors.surface,
+                  selectedColor: AppColors.royalBlue,
+                  backgroundColor: AppColors.scaffoldBg(context),
+                  side: BorderSide(color: isSel ? AppColors.royalBlue : border),
                   onSelected: (_) => setState(() => _category = c),
                 );
               }).toList(),
@@ -744,7 +838,7 @@ class _CreatePrayerSheetState extends ConsumerState<_CreatePrayerSheet> {
                 labelText: 'Title / Subject',
                 hintText: 'e.g. Healing for my father, Guidance in job interview',
               ),
-              style: const TextStyle(color: AppColors.onBackground),
+              style: TextStyle(color: textPrimary),
             ),
             const SizedBox(height: 14),
 
@@ -756,17 +850,17 @@ class _CreatePrayerSheetState extends ConsumerState<_CreatePrayerSheet> {
                 labelText: 'Prayer Points & Details',
                 hintText: 'Describe what you would like the community to pray for...',
               ),
-              style: const TextStyle(color: AppColors.onBackground),
+              style: TextStyle(color: textPrimary),
             ),
             const SizedBox(height: 14),
 
             // Anonymous switch
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Post Anonymously', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-              subtitle: const Text('Your name will be hidden from the public wall', style: TextStyle(fontSize: 12, color: AppColors.onSurfaceMuted)),
+              title: Text('Post Anonymously', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary)),
+              subtitle: Text('Your name will be hidden from the public wall', style: TextStyle(fontSize: 12, color: textMuted)),
               value: _isAnonymous,
-              activeThumbColor: AppColors.primary,
+              activeThumbColor: AppColors.pinkAccent,
               onChanged: (val) => setState(() => _isAnonymous = val),
             ),
 
@@ -778,7 +872,7 @@ class _CreatePrayerSheetState extends ConsumerState<_CreatePrayerSheet> {
                   labelText: 'Your Name',
                   hintText: 'e.g. David, Sarah',
                 ),
-                style: const TextStyle(color: AppColors.onBackground),
+                style: TextStyle(color: textPrimary),
               ),
             ],
 
@@ -792,11 +886,7 @@ class _CreatePrayerSheetState extends ConsumerState<_CreatePrayerSheet> {
             ElevatedButton(
               onPressed: _submitting ? null : _submit,
               child: _submitting
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
+                  ? const AudioWaveIndicator.mini(isPlaying: true, activeColor: Colors.white)
                   : const Text('Post to Prayer Wall'),
             ),
           ],
@@ -839,7 +929,6 @@ class _CreatePrayerSheetState extends ConsumerState<_CreatePrayerSheet> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            backgroundColor: AppColors.surface,
             content: Row(
               children: [
                 Icon(Icons.check_circle, color: AppColors.success),
@@ -851,7 +940,7 @@ class _CreatePrayerSheetState extends ConsumerState<_CreatePrayerSheet> {
         );
       }
     } catch (e) {
-      setState(() => _error = 'Could not submit prayer. Please check connection and sign in if required.');
+      setState(() => _error = 'Could not submit prayer. Please check connection.');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
